@@ -1,72 +1,86 @@
-import React, { useState } from 'react'
-import { PlusCircle, Trash2 } from 'lucide-react'
-import TodoItem from './components/TodoItem'
+import React, { useState, useEffect } from 'react'
 import { Helmet } from 'react-helmet-async'
-
-interface Todo {
-	id: number
-	text: string
-	completed: boolean
-}
+import TodoItem from './components/TodoItem'
+import { getTodos, createTodo, updateTodo, deleteTodo, Todo } from './api/todo'
 
 function App() {
-	const pageTitle = 'Todo List';
 	const [todos, setTodos] = useState<Todo[]>([])
-	const [newTodo, setNewTodo] = useState('')
+	const [newTodoText, setNewTodoText] = useState('')
 
-	const addTodo = () => {
-		if (newTodo.trim() !== '') {
-			setTodos([...todos, { id: Date.now(), text: newTodo, completed: false }])
-			setNewTodo('')
+	useEffect(() => {
+		fetchTodos()
+	}, [])
+
+	const fetchTodos = async () => {
+		try {
+			const fetchedTodos = await getTodos()
+			setTodos(fetchedTodos)
+		} catch (error) {
+			console.error('Error fetching todos:', error)
 		}
 	}
 
-	const toggleTodo = (id: number) => {
-		setTodos(todos.map(todo =>
-			todo.id === id ? { ...todo, completed: !todo.completed } : todo
-		))
+	const handleAddTodo = async (e: React.FormEvent) => {
+		e.preventDefault()
+		if (newTodoText.trim()) {
+			try {
+				const newTodo = await createTodo(newTodoText)
+				setTodos([...todos, newTodo])
+				setNewTodoText('')
+			} catch (error) {
+				console.error('Error adding todo:', error)
+			}
+		}
 	}
 
-	const deleteTodo = (id: number) => {
-		setTodos(todos.filter(todo => todo.id !== id))
+	const handleToggleTodo = async (id: number) => {
+		const todoToUpdate = todos.find(todo => todo.id === id)
+		if (todoToUpdate) {
+			try {
+				const updatedTodo = await updateTodo(id, { completed: !todoToUpdate.completed })
+				setTodos(todos.map(todo => todo.id === id ? updatedTodo : todo))
+			} catch (error) {
+				console.error('Error updating todo:', error)
+			}
+		}
+	}
+
+	const handleDeleteTodo = async (id: number) => {
+		try {
+			await deleteTodo(id)
+			setTodos(todos.filter(todo => todo.id !== id))
+		} catch (error) {
+			console.error('Error deleting todo:', error)
+		}
 	}
 
 	return (
-		<>
+		<div className="container mx-auto p-4">
 			<Helmet>
-				<title>{pageTitle}</title>
+				<title>Todo List App</title>
 			</Helmet>
-			<div className="min-h-screen bg-gray-100 flex items-center justify-center">
-				<div className="bg-white p-8 rounded-lg shadow-md w-full max-w-md">
-					<h1 className="text-3xl font-bold mb-6 text-center text-gray-800">Todo List</h1>
-					<div className="flex mb-4">
-						<input
-							type="text"
-							value={newTodo}
-							onChange={(e) => setNewTodo(e.target.value)}
-							className="flex-grow p-2 border border-gray-300 rounded-l-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-							placeholder="Add a new todo..."
-						/>
-						<button
-							onClick={addTodo}
-							className="bg-blue-500 text-white p-2 rounded-r-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
-						>
-							<PlusCircle size={24} />
-						</button>
-					</div>
-					<ul className="space-y-2">
-						{todos.map(todo => (
-							<TodoItem
-								key={todo.id}
-								todo={todo}
-								onToggle={() => toggleTodo(todo.id)}
-								onDelete={() => deleteTodo(todo.id)}
-							/>
-						))}
-					</ul>
-				</div>
-			</div>
-		</>
+			<h1 className="text-2xl font-bold mb-4">Todo List</h1>
+			<form onSubmit={handleAddTodo} className="mb-4">
+				<input
+					type="text"
+					value={newTodoText}
+					onChange={(e) => setNewTodoText(e.target.value)}
+					placeholder="Add a new todo"
+					className="border p-2 mr-2"
+				/>
+				<button type="submit" className="bg-blue-500 text-white p-2 rounded">Add Todo</button>
+			</form>
+			<ul>
+				{todos.map(todo => (
+					<TodoItem
+						key={todo.id}
+						todo={todo}
+						onToggle={() => handleToggleTodo(todo.id)}
+						onDelete={() => handleDeleteTodo(todo.id)}
+					/>
+				))}
+			</ul>
+		</div>
 	)
 }
 
